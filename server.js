@@ -1,7 +1,7 @@
 const path = require('path');
 const express = require('express');
 const bearerToken = require('express-bearer-token');
-const tokenParser = require('parse-bearer-token')
+const tokenParser = require('parse-bearer-token');
 const proxy = require('http-proxy-middleware');
 const compression = require('compression');
 const bodyParser = require('body-parser');
@@ -13,7 +13,6 @@ const otp = require('./src/otp/index');
 const FRAME_SIZE = 10;
 
 app.use(bodyParser.urlencoded({extended: true}));
-app.use(bodyParser.json());
 
 agile.idm.authentication.authenticateClient(conf.client.id, conf.client.clientSecret).then((auth) => {
   agile.tokenSet(auth.access_token);
@@ -27,14 +26,13 @@ const authMiddleware = function (req, res, next) {
   const type = req.headers.entitytype;
   if (!token) {
     return res.status(401).send('Authentication failed: Please provide a token');
-  }
 
+  }
   if (!id && !type) {
     return res.status(400).send('Required missing argument: Please provide an entity id and entity type');
+
   }
-
   agile.idm.entity.get(id, type).then(entity => {
-
     if (!entity.credentials.otp) {
       return res.status(404).send('The requested entity does not have OTP information');
     }
