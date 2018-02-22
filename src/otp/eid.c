@@ -22,7 +22,8 @@ int modulus(double a, double b) {
 }
 
 void printHex(uint8_t *hex, int offset) {
-	for (int i = 0; i < 16; ++i) {
+	int i = 0;
+	for (i = 0; i < 16; ++i) {
 		if (offset > 0 && i >= offset) {
 			break;
 		} else {
@@ -34,7 +35,8 @@ void printHex(uint8_t *hex, int offset) {
 
 void writeHex(unsigned char *hex, int offset, char *output) {
 	int j = 0;
-	for (int i = 0; i < 16; ++i) {
+	int i = 0;
+	for (i = 0; i < 16; ++i) {
 		if (offset > 0 && i >= offset) {
 			break;
 		} else {
@@ -51,7 +53,8 @@ uint8_t *parseIk(char *ikString) {
 	char subString[3];
 	subString[3] = '\0';
 	int j = 0;
-	for (int i = 0; i < 16 * 2; i += 2) {
+	int i = 0;
+	for (i = 0; i < 16 * 2; i += 2) {
 		memcpy(subString, &ikString[i], 2);
 		unsigned int intVal;
 		if (sscanf(subString, "%xu", &intVal) != 1) {
