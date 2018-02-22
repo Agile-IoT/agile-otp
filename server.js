@@ -20,16 +20,20 @@ agile.idm.authentication.authenticateClient(conf.client.id, conf.client.clientSe
 })
 
 const authMiddleware = function (req, res, next) {
-  let token = tokenParser(req)
+  const token = tokenParser(req);
+  const name = req.headers.entityname;
+  const auth = req.headers.authtype;
+  const id = name + "!@!" + auth;
+  const type = req.headers.entitytype;
   if (!token) {
     return res.status(401).send('Authentication failed: Please provide a token');
   }
 
-  if(!req.body.id && !req.body.type) {
+  if (!id && !type) {
     return res.status(400).send('Required missing argument: Please provide an entity id and entity type');
   }
 
-  agile.idm.entity.get(req.body.id, req.body.type).then(entity => {
+  agile.idm.entity.get(id, type).then(entity => {
 
     if (!entity.credentials.otp) {
       return res.status(404).send('The requested entity does not have OTP information');
@@ -46,6 +50,7 @@ const authMiddleware = function (req, res, next) {
   }).then(res => {
     let newts = res.ts;
     let validToken = res.id === token;
+
     if(validToken) {
      newts++;
     } else if(res.otp.frame) {
@@ -61,24 +66,27 @@ const authMiddleware = function (req, res, next) {
       }
     }
 
-    if(validToken) {
+    if (validToken) {
       res.otp.ts = '' + newts;
       let frame = {};
-      for(let i = 1; i <= FRAME_SIZE; ++i) {
+      for (let i = 1; i <= FRAME_SIZE; ++i) {
         frame[i] = otp.generateEID(res.ik, 0, newts + i - 1).eid;
       }
 
       res.otp.frame = frame;
       agile.idm.entity.setAttribute({
-        entityType: req.body.type,
-        entityId: req.body.id,
+        entityType: type,
+        entityId: id,
         attributeType: 'credentials.otp',
-        attributeValue: res.otp})
+        attributeValue: res.otp
+      })
       .then(() => {
+        //If everything is OK, add the clients' token to be able to proxy the request
+        req.headers = {'authorization': 'Bearer ' + agile.tokenGet(), 'Content-Type': 'application/json'};
         next();
       });
     } else {
-     throw {response: {status: 401}, message: 'Invalid token'};
+      throw {response: {status: 401}, message: 'Invalid token'};
     }
   }).catch(err => {
     // forward the failed result to client
@@ -90,12 +98,12 @@ const authMiddleware = function (req, res, next) {
   })
 }
 
-const proxyFactory = (name, port, ws = false) => {
+const proxyFactory = (name, service, port, ws = false) => {
   return proxy({
     target: `http://${name}:${port}`,
     // changeOrigin: true,
     pathRewrite: {
-      [`^/${name}`]: ''
+      [`^/${service}`]: ''
     },
     ws
   });
@@ -104,12 +112,11 @@ const proxyFactory = (name, port, ws = false) => {
 app.use(compression());
 // All gateway traffic proxied with signature <host>/<service-name>
 app.use(express.static(path.join(__dirname, 'build')));
-// security handles it's own authentication.
-// so one can interact with agile-security before auth middleware.
+
 app.use(bearerToken());
-app.use('/agile-security', proxyFactory('agile-security', 3000));
-app.use('/agile-core', authMiddleware, proxyFactory('agile-core', 8080, true));
-app.use('/agile-data', authMiddleware, proxyFactory('agile-data', 1338));
-app.use('/agile-recommender', authMiddleware, proxyFactory('agile-recommender', 1338));
+app.use('/agile-security', authMiddleware, proxyFactory('agile-security', 'agile-security', 3000));
+app.use('/agile-core', authMiddleware, proxyFactory('agile-core', 'agile-core', 8080, true));
+app.use('/agile-data', authMiddleware, proxyFactory('agile-data', 'agile-data', 1338));
+app.use('/agile-recommender', authMiddleware, proxyFactory('agile-recommender', 'agile-recommender', 1338));
 
 app.listen(1400, () => console.log('AGILE-OTP proxy listening!'));
