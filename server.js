@@ -22,7 +22,7 @@ agile.idm.authentication.authenticateClient(conf.client.id, conf.client.clientSe
       if (entity.credentials && entity.credentials.otp && !entity.credentials.otp.frame) {
         let frame = {};
         for (let i = 1; i <= conf.frame_size; ++i) {
-          frame[i] = otp.generateEID(entity.credentials.otp.ik, 0, entity.credentials.otp.ts + i - 1).eid
+          frame[i] = otp.generateEID(entity.credentials.otp.ik, 0, parseInt(entity.credentials.otp.ts) + i - 1).eid
         }
         entity.credentials.otp.frame = frame;
         agile.idm.entity.setAttribute({
