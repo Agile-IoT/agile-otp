@@ -72,6 +72,37 @@ uint8_t *parseIk(char *ikString) {
 	return result;
 }
 
+int encrypt(unsigned char *plaintext, int plaintext_len, unsigned char *key,
+		unsigned char *ciphertext) {
+	ERR_load_crypto_strings();
+	OpenSSL_add_all_algorithms();
+	OPENSSL_config(NULL);
+
+	EVP_CIPHER_CTX *ctx;
+
+	int len;
+
+	int ciphertext_len;
+
+	if (!(ctx = EVP_CIPHER_CTX_new()))
+		handleErrors();
+
+	if (1 != EVP_EncryptInit_ex(ctx, EVP_aes_128_ecb(), NULL, key, NULL))
+		handleErrors();
+
+	if (1 != EVP_EncryptUpdate(ctx, ciphertext, &len, plaintext, plaintext_len))
+		handleErrors();
+	ciphertext_len = len;
+
+	if (1 != EVP_EncryptFinal_ex(ctx, ciphertext + len, &len))
+		handleErrors();
+	ciphertext_len += len;
+
+	EVP_CIPHER_CTX_free(ctx);
+
+	return ciphertext_len;
+}
+
 int generateEID(char *ikString, int scaler, int beacon_time_seconds, unsigned char *eid) {
 
 	uint8_t *ik = parseIk(ikString);
@@ -110,35 +141,3 @@ int generateEID(char *ikString, int scaler, int beacon_time_seconds, unsigned ch
 
 	return 0;
 }
-
-int encrypt(unsigned char *plaintext, int plaintext_len, unsigned char *key,
-		unsigned char *ciphertext) {
-	ERR_load_crypto_strings();
-	OpenSSL_add_all_algorithms();
-	OPENSSL_config(NULL);
-
-	EVP_CIPHER_CTX *ctx;
-
-	int len;
-
-	int ciphertext_len;
-
-	if (!(ctx = EVP_CIPHER_CTX_new()))
-		handleErrors();
-
-	if (1 != EVP_EncryptInit_ex(ctx, EVP_aes_128_ecb(), NULL, key, NULL))
-		handleErrors();
-
-	if (1 != EVP_EncryptUpdate(ctx, ciphertext, &len, plaintext, plaintext_len))
-		handleErrors();
-	ciphertext_len = len;
-
-	if (1 != EVP_EncryptFinal_ex(ctx, ciphertext + len, &len))
-		handleErrors();
-	ciphertext_len += len;
-
-	EVP_CIPHER_CTX_free(ctx);
-
-	return ciphertext_len;
-}
-
