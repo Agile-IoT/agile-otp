@@ -33,6 +33,8 @@ agile.idm.authentication.authenticateClient(conf.client.id, conf.client.clientSe
         });
       }
     })
+  }).catch(err => {
+    console.log(err);
   });
 });
 
