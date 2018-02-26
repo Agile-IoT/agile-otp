@@ -5,7 +5,7 @@ ARG NODE_ENV=prod
 WORKDIR /usr/src/app
 
 COPY package.json package.json
-
+COPY ./src/otp/ ./
 # This install npm dependencies on the resin.io build server,
 # making sure to clean up the artifacts it creates in order to reduce the image size.
 
@@ -17,7 +17,5 @@ COPY . ./
 EXPOSE 1400
 
 ENV INIT_SYSTEM on
-
-RUN npm install -g node-gyp
 
 CMD ["bash", "start.sh"]
