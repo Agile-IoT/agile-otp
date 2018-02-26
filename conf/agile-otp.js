@@ -10,5 +10,6 @@ module.exports = {
   },
   log_level:'info',
   port: 1400,
+  frame_size: 10,
   types: ['user', 'device']
 }

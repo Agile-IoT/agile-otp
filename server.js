@@ -10,8 +10,6 @@ const app = express();
 const agile = require('agile-sdk')(conf.sdk);
 const otp = require('./index');
 
-const FRAME_SIZE = 10;
-
 app.use(bodyParser.urlencoded({extended: true}));
 
 agile.idm.authentication.authenticateClient(conf.client.id, conf.client.clientSecret).then((auth) => {
@@ -56,7 +54,7 @@ const authMiddleware = function (req, res, next) {
   }).then(entity => {
     if (entity) {
       let frame = {};
-      for (let i = 1; i <= FRAME_SIZE; ++i) {
+      for (let i = 1; i <= conf.frame_size; ++i) {
         frame[i] = otp.generateEID(entity.credentials.otp.ik, 0, entity.credentials.otp.ts + i - 1).eid
       }
       entity.credentials.otp.frame = frame;
