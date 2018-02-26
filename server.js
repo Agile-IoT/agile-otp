@@ -8,7 +8,7 @@ const bodyParser = require('body-parser');
 const conf = require('./conf/agile-otp');
 const app = express();
 const agile = require('agile-sdk')(conf.sdk);
-const otp = require('./src/otp/index');
+const otp = require('./index');
 
 const FRAME_SIZE = 10;
 
