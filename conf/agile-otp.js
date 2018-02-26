@@ -9,5 +9,6 @@ module.exports = {
     idm: 'http://agile-security:3000'
   },
   log_level:'info',
-  port: 1400
+  port: 1400,
+  types: ['user', 'device']
 }

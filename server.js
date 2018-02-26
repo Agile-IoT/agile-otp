@@ -16,84 +16,72 @@ app.use(bodyParser.urlencoded({extended: true}));
 
 agile.idm.authentication.authenticateClient(conf.client.id, conf.client.clientSecret).then((auth) => {
   agile.tokenSet(auth.access_token);
-})
+});
+
+function getEntities(types) {
+  return Promise.all(types.map(type => {
+    return agile.idm.entity.getByType(type)
+  })).then(entities => {
+    let result = [];
+    entities.forEach(e => {
+      if (e.length > 0) {
+        result.push(e[0])
+      }
+    });
+    return result;
+  });
+}
 
 const authMiddleware = function (req, res, next) {
   const token = tokenParser(req);
-  const name = req.headers.entityname;
-  const auth = req.headers.authtype;
-  const id = name + "!@!" + auth;
-  const type = req.headers.entitytype;
   if (!token) {
     return res.status(401).send('Authentication failed: Please provide a token');
 
   }
-  if (!id && !type) {
-    return res.status(400).send('Required missing argument: Please provide an entity id and entity type');
 
-  }
-  agile.idm.entity.get(id, type).then(entity => {
-    if (!entity.credentials.otp) {
-      return res.status(404).send('The requested entity does not have OTP information');
-    }
-
-    let ik = entity.credentials.otp.ik;
-    let ts = parseInt(entity.credentials.otp.ts);
-
-    if (req.body.scaler) {
-      return {id: otp.generateEID(ik, req.body.scaler, ts).eid, ik: ik, ts: ts, otp: entity.credentials.otp};
-    } else {
-      return {id: otp.generateEID(ik, 0, ts).eid, ik: ik, ts: ts, otp: entity.credentials.otp};
-    }
-  }).then(res => {
-    let newts = res.ts;
-    let validToken = res.id === token;
-
-    if(validToken) {
-     newts++;
-    } else if(res.otp.frame) {
-      let i = 1;
-      while(!validToken && i <= FRAME_SIZE) {
-        if(res.otp.frame[i] === token) {
-          validToken = true;
+  //conf.types.forEach(type => {
+  getEntities(conf.types).then(entities => {
+    return entities.filter(entity => {
+      if (entity.credentials && entity.credentials.otp && entity.credentials.otp.frame) {
+        let keys = Object.keys(entity.credentials.otp.frame);
+        let foundKey = keys.filter(key => {
+          return entity.credentials.otp.frame[key] === token
+        })[0];
+        if (foundKey) {
+          entity.credentials.otp.ts = parseInt(entity.credentials.otp.ts) + parseInt(foundKey[0]);
+          return entity
         }
-        if (validToken) {
-          newts = newts + i;
-        }
-        i++;
       }
-    }
-
-    if (validToken) {
-      res.otp.ts = '' + newts;
+    })[0];
+  }).then(entity => {
+    if (entity) {
       let frame = {};
       for (let i = 1; i <= FRAME_SIZE; ++i) {
-        frame[i] = otp.generateEID(res.ik, 0, newts + i - 1).eid;
+        frame[i] = otp.generateEID(entity.credentials.otp.ik, 0, entity.credentials.otp.ts + i - 1).eid
       }
-
-      res.otp.frame = frame;
+      entity.credentials.otp.frame = frame;
       agile.idm.entity.setAttribute({
-        entityType: type,
-        entityId: id,
+        entityType: entity.type.replace("/", ""),
+        entityId: entity.id,
         attributeType: 'credentials.otp',
-        attributeValue: res.otp
-      })
-      .then(() => {
+        attributeValue: entity.credentials.otp
+      }).then(() => {
         //If everything is OK, add the clients' token to be able to proxy the request
         req.headers = {'authorization': 'Bearer ' + agile.tokenGet(), 'Content-Type': 'application/json'};
         next();
       });
     } else {
-      throw {response: {status: 401}, message: 'Invalid token'};
+      throw {response: {status: 401}, message: 'Invalid token'}
     }
   }).catch(err => {
     // forward the failed result to client
     if (err) {
-      res.status(err.response.status).send(err.message);
+      res.status(err.response.status).send(err.message)
     } else {
-      next(err);
+      next(err)
     }
-  })
+  });
+  //});
 }
 
 const proxyFactory = (name, service, port, ws = false) => {
@@ -104,7 +92,7 @@ const proxyFactory = (name, service, port, ws = false) => {
       [`^/${service}`]: ''
     },
     ws
-  });
+  })
 }
 
 app.use(compression());
@@ -117,4 +105,4 @@ app.use('/agile-core', authMiddleware, proxyFactory('agile-core', 'agile-core', 
 app.use('/agile-data', authMiddleware, proxyFactory('agile-data', 'agile-data', 1338));
 app.use('/agile-recommender', authMiddleware, proxyFactory('agile-recommender', 'agile-recommender', 1338));
 
-app.listen(1400, () => console.log('AGILE-OTP proxy listening!'));
+app.listen(conf.port, () => console.log('AGILE-OTP proxy listening!'));
