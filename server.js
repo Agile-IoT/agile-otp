@@ -12,8 +12,28 @@ const otp = require('./index');
 
 app.use(bodyParser.urlencoded({extended: true}));
 
+//Authenticate on boot
 agile.idm.authentication.authenticateClient(conf.client.id, conf.client.clientSecret).then((auth) => {
   agile.tokenSet(auth.access_token);
+}).then(() => {
+  //Calculate token frames for all entities on boot
+  getEntities(conf.types).then(entities => {
+    entities.forEach(entity => {
+      if (entity.credentials && entity.credentials.otp && !entity.credentials.otp.frame) {
+        let frame = {};
+        for (let i = 1; i <= conf.frame_size; ++i) {
+          frame[i] = otp.generateEID(entity.credentials.otp.ik, 0, entity.credentials.otp.ts + i - 1).eid
+        }
+        entity.credentials.otp.frame = frame;
+        agile.idm.entity.setAttribute({
+          entityType: entity.type.replace("/", ""),
+          entityId: entity.id,
+          attributeType: 'credentials.otp',
+          attributeValue: entity.credentials.otp
+        });
+      }
+    })
+  });
 });
 
 function getEntities(types) {
