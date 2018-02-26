@@ -51,7 +51,7 @@ void writeHex(unsigned char *hex, int offset, char *output) {
 uint8_t *parseIk(char *ikString) {
 	uint8_t ik[16] = { 0 };
 	char subString[3];
-	subString[3] = '\0';
+	subString[2] = '\0';
 	int j = 0;
 	int i = 0;
 	for (i = 0; i < 16 * 2; i += 2) {
