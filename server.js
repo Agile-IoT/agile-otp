@@ -15,24 +15,32 @@ app.use(bodyParser.urlencoded({extended: true}));
 //Authenticate on boot
 agile.idm.authentication.authenticateClient(conf.client.id, conf.client.clientSecret).then((auth) => {
   agile.tokenSet(auth.access_token);
+}).catch(err => {
+  console.log(err)
 }).then(() => {
   //Calculate token frames for all entities on boot
   getEntities(conf.types).then(entities => {
-    entities.forEach(entity => {
-      if (entity.credentials && entity.credentials.otp && !entity.credentials.otp.frame) {
-        let frame = {};
-        for (let i = 1; i <= conf.frame_size; ++i) {
-          frame[i] = otp.generateEID(entity.credentials.otp.ik, 0, parseInt(entity.credentials.otp.ts) + i - 1).eid
+    if (entities) {
+      entities.forEach(entity => {
+        if (entity.credentials && entity.credentials.otp && !entity.credentials.otp.frame) {
+          let frame = {};
+          for (let i = 1; i <= conf.frame_size; ++i) {
+            frame[i] = otp.generateEID(entity.credentials.otp.ik, 0, parseInt(entity.credentials.otp.ts) + i - 1).eid
+          }
+          entity.credentials.otp.frame = frame;
+          agile.idm.entity.setAttribute({
+            entityType: entity.type.replace("/", ""),
+            entityId: entity.id,
+            attributeType: 'credentials.otp',
+            attributeValue: entity.credentials.otp
+          }).catch(err => {
+            console.log(err);
+          }).then(entity => {
+            console.log("Created token for", entity.id);
+          })
         }
-        entity.credentials.otp.frame = frame;
-        agile.idm.entity.setAttribute({
-          entityType: entity.type.replace("/", ""),
-          entityId: entity.id,
-          attributeType: 'credentials.otp',
-          attributeValue: entity.credentials.otp
-        });
-      }
-    })
+      })
+    }
   }).catch(err => {
     console.log(err);
   });
@@ -42,13 +50,17 @@ function getEntities(types) {
   return Promise.all(types.map(type => {
     return agile.idm.entity.getByType(type)
   })).then(entities => {
-    let result = [];
-    entities.forEach(e => {
-      if (e.length > 0) {
-        result.push(e[0])
-      }
-    });
-    return result;
+    if (entities) {
+      let result = [];
+      entities.forEach(e => {
+        if (e.length > 0) {
+          result.push(e[0])
+        }
+      });
+      return result;
+    }
+  }).catch(err => {
+    console.log(err)
   });
 }
 
@@ -59,7 +71,6 @@ const authMiddleware = function (req, res, next) {
 
   }
 
-  //conf.types.forEach(type => {
   getEntities(conf.types).then(entities => {
     return entities.filter(entity => {
       if (entity.credentials && entity.credentials.otp && entity.credentials.otp.frame) {
@@ -101,7 +112,6 @@ const authMiddleware = function (req, res, next) {
       next(err)
     }
   });
-  //});
 }
 
 const proxyFactory = (name, service, port, ws = false) => {
@@ -125,4 +135,4 @@ app.use('/agile-core', authMiddleware, proxyFactory('agile-core', 'agile-core', 
 app.use('/agile-data', authMiddleware, proxyFactory('agile-data', 'agile-data', 1338));
 app.use('/agile-recommender', authMiddleware, proxyFactory('agile-recommender', 'agile-recommender', 1338));
 
-app.listen(conf.port, () => console.log('AGILE-OTP proxy listening!'));
+app.listen(conf.port, () => console.log('AGILE-OTP proxy listening on', conf.port));
