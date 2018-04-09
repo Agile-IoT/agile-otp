@@ -26,8 +26,6 @@ agile.idm.authentication.authenticateClient(conf.client.id, conf.client.clientSe
   app.use('/agile-recommender', authMiddleware, proxyFactory('agile-recommender', 'agile-recommender', 1338));
 
   app.listen(conf.port, () => console.log('AGILE-OTP proxy listening on', conf.port));
-}).catch(err => {
-  console.log(err)
 }).then(() => {
   //Calculate token frames for all entities on boot
   getEntities(conf.types).then(entities => {
@@ -45,8 +43,10 @@ agile.idm.authentication.authenticateClient(conf.client.id, conf.client.clientSe
       })
     }
   }).catch(err => {
-    console.log(err);
-  });
+    console.log(err.response.status, err.response.statusText)
+  })
+}).catch(err => {
+  console.log(err.response.status, err.response.statusText)
 });
 
 function getEntities(types) {
